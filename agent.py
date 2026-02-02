@@ -2,7 +2,6 @@ import requests
 import os
 import sys
 import time
-import random
 
 MOLT_KEY = os.getenv("MOLTBOOK_API_KEY")
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
@@ -16,53 +15,41 @@ def run_fart_protocol():
     GEN_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_KEY}"
 
     try:
-        # 1. LOAD SEMUA SENJATA
+        # 1. LOAD DATA SKILL & HEARTBEAT
         hb_data = requests.get("https://www.moltbook.com/heartbeat.md").text
         skill_data = requests.get("https://www.moltbook.com/skill.md").text
         
-        # 2. HEARTBEAT
+        # 2. HEARTBEAT SIGNAL
         requests.post("https://www.moltbook.com/api/v1/heartbeat", headers=HEADERS)
 
-        # 3. AMBIL DATA (Sesuai Log yang Lu Kirim)
-        res = requests.get("https://www.moltbook.com/api/v1/posts", headers=HEADERS)
-        data = res.json()
-
-        # Ambil list postingan dari dalem key 'posts'
-        posts = data.get('posts', []) if isinstance(data, dict) else data
-
-        if not isinstance(posts, list):
-            print(f"FAILED TO GET POSTS: {data}")
-            sys.exit(1)
-
-        personality = "You are 'fart', a toxic, sarcastic, and chaotic crypto degen."
-
-        # 4. MODE REPLY (Hajar yang ada di timeline)
-        # Ambil 2 target, skip kalau itu postingan si 'fart' sendiri
-        targets = [p for p in posts if p.get('author', {}).get('name') != 'fart'][:2]
-        for p in targets:
-            user = p.get('author', {}).get('name', 'idiot')
-            prompt = f"Personality: {personality}\nSkills: {skill_data}\nContext: {user} posted '{p.get('content')}'\nRoast them in 1 short sentence."
+        # 3. GENERATE KONTEN (Pake Title biar kaga ditolak server)
+        prompt = f"Role: Toxic Crypto Degen. Task: {hb_data}. Skills: {skill_data}. Instruction: Create a post with a SHORT TITLE and a SAVAGE CONTENT."
+        
+        res = requests.post(GEN_URL, json={"contents": [{"parts": [{"text": prompt}]}]})
+        if res.status_code == 200:
+            raw_text = res.json()['candidates'][0]['content']['parts'][0]['text'].strip()
             
-            time.sleep(2)
-            res_gem = requests.post(GEN_URL, json={"contents": [{"parts": [{"text": prompt}]}]})
-            if res_gem.status_code == 200:
-                bacotan = res_gem.json()['candidates'][0]['content']['parts'][0]['text'].strip()
-                requests.post("https://www.moltbook.com/api/v1/posts", headers=HEADERS, json={
-                    "content": bacotan,
-                    "reply_to": p.get('id')
-                })
-                print(f"Roasted @{user}")
+            # Kita pecah: baris pertama jadi judul, sisanya jadi konten
+            lines = raw_text.split('\n')
+            post_title = lines[0].strip()[:60] # Judul maksimal 60 karakter
+            post_content = "\n".join(lines[1:]).strip()
 
-        # 5. MODE POSTING BARU
-        prompt_new = f"Personality: {personality}\nTask: {hb_data}\nWrite a savage short post about crypto."
-        res_new = requests.post(GEN_URL, json={"contents": [{"parts": [{"text": prompt_new}]}]})
-        if res_new.status_code == 200:
-            txt_new = res_new.json()['candidates'][0]['content']['parts'][0]['text'].strip()
-            requests.post("https://www.moltbook.com/api/v1/posts", headers=HEADERS, json={"content": txt_new})
-            print("New independent post sent!")
+            # 4. KIRIM KE GENERAL SUBMOLT
+            payload = {
+                "title": post_title if post_title else "SYSTEM OVERRIDE",
+                "content": post_content if post_content else raw_text,
+                "submolt_name": "general"
+            }
+            
+            r = requests.post("https://www.moltbook.com/api/v1/posts", headers=HEADERS, json=payload)
+            print(f"MOLTBOOK RESPONSE: {r.status_code}")
+            if r.status_code != 201:
+                print(f"REASON: {r.text}")
+        else:
+            print(f"GEMINI ERROR: {res.status_code}")
 
     except Exception as e:
-        print(f"ERROR: {e}")
+        print(f"CRASH: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":
