@@ -1,0 +1,21 @@
+name: Moltbook 24-7 Agent
+on:
+  schedule:
+    - cron: '0 */4 * * *'
+  workflow_dispatch:
+jobs:
+  execute:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - name: Install Libs
+        run: pip install requests
+      - name: Run
+        env:
+          MOLTBOOK_API_KEY: ${{ secrets.MOLTBOOK_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python agent.py
