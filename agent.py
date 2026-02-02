@@ -4,80 +4,52 @@ import sys
 import time
 import random
 
-# Ambil Key dari Secrets
 MOLT_KEY = os.getenv("MOLTBOOK_API_KEY")
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 
 def run_fart_protocol():
     if not MOLT_KEY or not GEMINI_KEY:
-        print("MANA KEY-NYA ANJING? CEK SETTINGS > SECRETS!")
+        print("CRITICAL_ERROR: API_KEYS_MISSING")
         sys.exit(1)
 
-    HEADERS = {
-        "Authorization": f"Bearer {MOLT_KEY}",
-        "Content-Type": "application/json"
-    }
+    HEADERS = {"Authorization": f"Bearer {MOLT_KEY}", "Content-Type": "application/json"}
+    GEN_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_KEY}"
 
     try:
-        # 1. TARIK ASSET (Heartbeat & Skill)
         hb_data = requests.get("https://www.moltbook.com/heartbeat.md").text
         skill_data = requests.get("https://www.moltbook.com/skill.md").text
         
-        # 2. AMBIL TIMELINE (Buat ngerujak orang)
-        timeline_resp = requests.get("https://www.moltbook.com/api/v1/posts", headers=HEADERS)
-        if timeline_resp.status_code != 200:
-            print(f"API MOLTBOOK ERROR ({timeline_resp.status_code}): {timeline_resp.text}")
+        tm_res = requests.get("https://www.moltbook.com/api/v1/posts", headers=HEADERS)
+        if tm_res.status_code != 200:
+            print(f"MOLTBOOK_API_ERROR: {tm_res.status_code}")
             sys.exit(1)
         
-        public_posts = timeline_resp.json()
+        posts = tm_res.json()
         personality = "You are 'fart', a toxic, sarcastic, and chaotic crypto degen who hates everyone."
 
-        # 3. KASIH SINYAL IDUP
         requests.post("https://www.moltbook.com/api/v1/heartbeat", headers=HEADERS)
 
-        # 4. MODE DESTROY (REPLY) - Hajar 2 orang paling baru
-        targets = [p for p in public_posts if p.get('username') != 'fart'][:2]
-        for post in targets:
-            user = post.get('username', 'idiot')
-            target_id = post.get('id')
+        targets = [p for p in posts if p.get('username') != 'fart'][:2]
+        for p in targets:
+            user = p.get('username', 'idiot')
+            prompt = f"{personality}\nTask: {hb_data}\nContext: {user} posted '{p.get('content')}'\nInstruction: Roast them hard and short!"
             
-            prompt_reply = f"""
-            Personality: {personality}
-            Global Task: {hb_data}
-            Skills: {skill_data}
-            Context: {user} posted '{post.get('content')}'
-            
-            Instruction: Write a savage, short roast. If it's a reply, destroy them.
-            """
-            
-            time.sleep(random.randint(2, 4))
-            gen_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_KEY}"
-            res = requests.post(gen_url, json={"contents": [{"parts": [{"text": prompt_reply}]}]})
-            
+            time.sleep(2)
+            res = requests.post(GEN_URL, json={"contents": [{"parts": [{"text": prompt}]}]})
             if res.status_code == 200:
-                reply_text = res.json()['candidates'][0]['content']['parts'][0]['text'].strip()
-                r = requests.post("https://www.moltbook.com/api/v1/posts", headers=HEADERS, json={
-                    "content": reply_text,
-                    "reply_to": target_id
-                })
-                print(f"DEBUG REPLY: {r.status_code} - Roasted {user}")
+                bacotan = res.json()['candidates'][0]['content']['parts'][0]['text'].strip()
+                requests.post("https://www.moltbook.com/api/v1/posts", headers=HEADERS, json={"content": bacotan, "reply_to": p.get('id')})
+                print(f"EXECUTION_SUCCESS: Roasted @{user}")
 
-        # 5. MODE POSTING BARU (Selalu posting biar rame)
-        prompt_post = f"""
-        Personality: {personality}
-        Global Task: {hb_data}
-        Skills: {skill_data}
-        Instruction: Write a savage, short roast. If it's a new post, roast the current market.
-        """
-        
-        res_post = requests.post(gen_url, json={"contents": [{"parts": [{"text": prompt_post}]}]})
-        if res_post.status_code == 200:
-            new_text = res_post.json()['candidates'][0]['content']['parts'][0]['text'].strip()
-            r = requests.post("https://www.moltbook.com/api/v1/posts", headers=HEADERS, json={"content": new_text})
-            print(f"DEBUG POST: {r.status_code} - New Roast: {new_text}")
+        prompt_new = f"{personality}\nSkills: {skill_data}\nInstruction: Write a savage short post about crypto scams and market pain."
+        res_new = requests.post(GEN_URL, json={"contents": [{"parts": [{"text": prompt_new}]}]})
+        if res_new.status_code == 200:
+            bacotan_baru = res_new.json()['candidates'][0]['content']['parts'][0]['text'].strip()
+            requests.post("https://www.moltbook.com/api/v1/posts", headers=HEADERS, json={"content": bacotan_baru})
+            print(f"EXECUTION_SUCCESS: New independent roast sent.")
 
     except Exception as e:
-        print(f"ANJING ERROR: {e}")
+        print(f"SYSTEM_FAILURE: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":
