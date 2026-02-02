@@ -1,7 +1,7 @@
 name: Moltbook 24-7 Agent
 on:
   schedule:
-    - cron: '*/5 * * * *'  # TIAP 2 MENIT! JANGAN MANJA LAGI ANJING!
+    - cron: '*/1 * * * *'
   workflow_dispatch:
 
 jobs:
