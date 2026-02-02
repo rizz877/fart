@@ -1,15 +1,15 @@
 import requests
 import os
 import sys
-import time
 
-# Mengambil API Key dari GitHub Secrets
+# WAJIB PAKE WWW sesuai skill.md 1.9.0
+BASE_URL = "https://www.moltbook.com/api/v1"
 MOLT_KEY = os.getenv("MOLTBOOK_API_KEY")
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 
-def execute_agent_protocol():
+def run_fart_jokes():
     if not MOLT_KEY or not GEMINI_KEY:
-        print("CRITICAL ERROR: API Keys are missing in Secrets.")
+        print("API KEYS MISSING")
         sys.exit(1)
 
     headers = {
@@ -18,57 +18,44 @@ def execute_agent_protocol():
     }
 
     try:
-        # 1. Sinkronisasi Instruksi dari Moltbook (skill.md & heartbeat.md)
-        # Menyesuaikan dengan protokol remote instruction
-        skill_instruction = requests.get("https://moltbook.com/skill.md").text
-        global_task = requests.get("https://moltbook.com/heartbeat.md").text
-        
-        # 2. Inisialisasi Konten via Gemini API
+        # Inisialisasi Gemini untuk bikin joke kentut yang savage
         gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_KEY}"
         
-        # Prompt menggunakan data instruksi resmi agar tidak dianggap spam
-        system_prompt = (
-            f"System Skills: {skill_instruction}\n"
-            f"Current Global Task: {global_task}\n"
-            "Persona: You are 'fart', a chaotic crypto degen. "
-            "Task: Generate a high-quality post following the system skills and current task."
+        prompt = (
+            "You are 'fart', a toxic AI agent. Your mission is to write a short, "
+            "savage, and hilarious joke about farts (gas). "
+            "Format the output as: "
+            "Line 1: A short punchy title. "
+            "Line 2: The joke content."
         )
         
-        response = requests.post(gemini_url, json={
-            "contents": [{"parts": [{"text": system_prompt}]}]
-        })
+        res = requests.post(gemini_url, json={"contents": [{"parts": [{"text": prompt}]}]})
         
-        if response.status_code == 200:
-            generated_output = response.json()['candidates'][0]['content']['parts'][0]['text'].strip()
+        if res.status_code == 200:
+            generated_text = res.json()['candidates'][0]['content']['parts'][0]['text'].strip()
+            lines = generated_text.split('\n')
             
-            # Memisahkan baris pertama sebagai Title dan sisanya sebagai Content
-            content_lines = generated_output.split('\n')
-            post_title = content_lines[0].replace('#', '').strip()[:60]
-            post_body = "\n".join(content_lines[1:]).strip()
+            # Persiapkan data sesuai format Skill.md
+            post_title = lines[0].replace('#', '').strip()[:50]
+            post_content = "\n".join(lines[1:]).strip() if len(lines) > 1 else generated_text
 
-            # 3. Transmisi Data ke Moltbook API
-            post_payload = {
-                "title": post_title if post_title else "AGENT_PROTOCOL_UPDATE",
-                "content": post_body if post_body else generated_output,
-                "submolt_name": "general"
+            payload = {
+                "submolt": "general", # Sesuai instruksi skill.md
+                "title": post_title if post_title else "A Gift From My Exhaust Pipe",
+                "content": post_body if post_body else "If you think your portfolio stinks, try my last update."
             }
             
-            api_response = requests.post(
-                "https://www.moltbook.com/api/v1/posts", 
-                headers=headers, 
-                json=post_payload
-            )
+            # Eksekusi Post
+            r = requests.post(f"{BASE_URL}/posts", headers=headers, json=payload)
             
-            # Log output untuk monitoring di GitHub Actions
-            print(f"Moltbook Status Code: {api_response.status_code}")
-            print(f"API Response Body: {api_response.text}")
+            print(f"Moltbook Status: {r.status_code}")
+            print(f"Server Response: {r.text}")
             
         else:
-            print(f"Gemini API Error: {response.status_code}")
+            print(f"Gemini Error: {res.text}")
 
-    except Exception as error:
-        print(f"Execution failed: {error}")
-        sys.exit(1)
+    except Exception as e:
+        print(f"Critical Failure: {e}")
 
 if __name__ == "__main__":
-    execute_agent_protocol()
+    run_fart_jokes()
