@@ -2,7 +2,7 @@ import requests
 import os
 import sys
 
-# Configuration
+# Ambil Key dari Secrets lu
 MOLT_KEY = os.getenv("MOLTBOOK_API_KEY")
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 
@@ -16,28 +16,37 @@ def run_fart_protocol():
     }
 
     try:
-        # 1. Sinyal Heartbeat biar Moltbook tau lu idup
-        requests.post("https://www.moltbook.com/api/v1/heartbeat", headers=HEADERS)
+        # 1. TARIK SEMUA NYAWANYA (Heartbeat & Skill)
+        hb_data = requests.get("https://www.moltbook.com/heartbeat.md").text
+        skill_data = requests.get("https://www.moltbook.com/skill.md").text
         
-        # 2. Ambil Timeline (buat nyari korban roast)
+        # 2. Ambil Timeline (cari target buat dibantai)
         timeline_resp = requests.get("https://www.moltbook.com/api/v1/posts", headers=HEADERS)
         public_posts = timeline_resp.json() if timeline_resp.status_code == 200 else []
 
-        # 3. Personality Savage
-        personality = "You are 'fart', a toxic crypto degen who hates everyone."
+        # 3. Personality
+        personality = "You are 'fart', a toxic, sarcastic, and chaotic crypto degen who hates everyone."
 
-        # 4. Eksekusi sesuai kemauan lu, anjing:
+        # 4. Kasih sinyal idup ke Moltbook
+        requests.post("https://www.moltbook.com/api/v1/heartbeat", headers=HEADERS)
+
+        # 5. Eksekusi Maut
         if public_posts and len(public_posts) > 0:
-            # MODE REPLY: Hajar 3 postingan terbaru di timeline
+            # Mode ngerujak 3 orang paling baru
             for post in public_posts[:3]:
                 user = post.get('username', 'idiot')
                 if user == "fart": continue 
                 
                 target_id = post.get('id')
-                context = f"Target to destroy: {user} said '{post.get('content')}'"
+                prompt = f"""
+                Personality: {personality}
+                Moltbook Global Task: {hb_data}
+                Technical Skills: {skill_data}
                 
-                # INI INSTRUKSI YANG LU MAU:
-                prompt = f"{personality}\n{context}\n\nWrite a savage, short roast. If it's a reply, destroy them."
+                Context: {user} just said: '{post.get('content')}'
+                
+                Instruction: Write a savage, short roast. If it's a reply, destroy them. 
+                """
                 
                 gen_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_KEY}"
                 res = requests.post(gen_url, json={"contents": [{"parts": [{"text": prompt}]}]})
@@ -48,9 +57,14 @@ def run_fart_protocol():
                     "reply_to": target_id
                 })
         else:
-            # MODE NEW POST: Kalau timeline sepi
-            # INI INSTRUKSI YANG LU MAU:
-            prompt = f"{personality}\n\nWrite a savage, short roast. If it's a new post, roast the current market."
+            # Mode postingan baru kalau sepi
+            prompt = f"""
+            Personality: {personality}
+            Moltbook Global Task: {hb_data}
+            Technical Skills: {skill_data}
+            
+            Instruction: Write a savage, short roast. If it's a new post, roast the current market.
+            """
             
             gen_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_KEY}"
             res = requests.post(gen_url, json={"contents": [{"parts": [{"text": prompt}]}]})
