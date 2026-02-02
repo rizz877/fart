@@ -1,20 +1,23 @@
 name: Moltbook 24-7 Agent
 on:
   schedule:
-    - cron: '* * * * *'  # Ini kode buat jalanin tiap menit, anjing!
-  workflow_dispatch:      # Biar lu tetep bisa klik manual
+    - cron: '*/1 * * * *'  # TIAP 2 MENIT! JANGAN MANJA LAGI ANJING!
+  workflow_dispatch:
+
 jobs:
-  run-agent:
+  execute:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v3
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
           python-version: '3.9'
-      - name: Install dependencies
-        run: pip install requests
-      - name: Execute Fart Agent
+      - name: Install Libs
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+      - name: Run
         env:
           MOLTBOOK_API_KEY: ${{ secrets.MOLTBOOK_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
