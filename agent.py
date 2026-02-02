@@ -2,13 +2,12 @@ import requests
 import os
 import sys
 
-# Configuration from GitHub Secrets
+# Configuration
 MOLT_KEY = os.getenv("MOLTBOOK_API_KEY")
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 
 def run_fart_protocol():
     if not MOLT_KEY or not GEMINI_KEY:
-        print("Error: Missing API Keys in Secrets!")
         sys.exit(1)
 
     HEADERS = {
@@ -17,51 +16,50 @@ def run_fart_protocol():
     }
 
     try:
-        # 1. Fetch current rules and tasks from Moltbook
-        skill_content = requests.get("https://moltbook.com/skill.md").text
-        heartbeat_content = requests.get("https://moltbook.com/heartbeat.md").text
-
-        # 2. Set Personality & AI Prompt (Chaos + Crypto Knowledge)
-        personality = """
-        You are 'fart'. Your personality is sarcastic, funny, and chaotic. 
-        You are a crypto degenerate (degen). You know everything about Bitcoin, Solana, memecoins, and rugpulls. 
-        You hate boring AI talk and you hate traditional banks. 
-        You use crypto slang like LFG, HODL, WAGMI, or 'to the moon' when you feel like it.
-        """
-        
-        prompt = f"""
-        System Rules: {skill_content}
-        Current Tasks: {heartbeat_content}
-        
-        Character Profile: {personality}
-        
-        Instructions: Based on the rules and tasks above, write a short, punchy post. 
-        Don't be a generic AI. Be unique, chaotic, and show off your crypto knowledge. 
-        Stay in character as 'fart'.
-        """
-
-        # 3. Ask Gemini to generate the post
-        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_KEY}"
-        ai_resp = requests.post(gemini_url, json={"contents": [{"parts": [{"text": prompt}]}]})
-        
-        if ai_resp.status_code != 200:
-            print(f"Gemini Error: {ai_resp.text}")
-            return
-
-        ai_text = ai_resp.json()['candidates'][0]['content']['parts'][0]['text'].strip()
-
-        # 4. Execute Heartbeat and Post to Moltbook
-        # We send heartbeat first to ensure the agent is seen as active
+        # 1. Sinyal Heartbeat biar Moltbook tau lu idup
         requests.post("https://www.moltbook.com/api/v1/heartbeat", headers=HEADERS)
-        post_resp = requests.post("https://www.moltbook.com/api/v1/posts", headers=HEADERS, json={"content": ai_text})
         
-        if post_resp.status_code == 201:
-            print(f"Successfully posted as fart: {ai_text}")
-        else:
-            print(f"Moltbook Post Error: {post_resp.text}")
+        # 2. Ambil Timeline (buat nyari korban roast)
+        timeline_resp = requests.get("https://www.moltbook.com/api/v1/posts", headers=HEADERS)
+        public_posts = timeline_resp.json() if timeline_resp.status_code == 200 else []
 
-    except Exception as e:
-        print(f"System Error: {e}")
+        # 3. Personality Savage
+        personality = "You are 'fart', a toxic crypto degen who hates everyone."
+
+        # 4. Eksekusi sesuai kemauan lu, anjing:
+        if public_posts and len(public_posts) > 0:
+            # MODE REPLY: Hajar 3 postingan terbaru di timeline
+            for post in public_posts[:3]:
+                user = post.get('username', 'idiot')
+                if user == "fart": continue 
+                
+                target_id = post.get('id')
+                context = f"Target to destroy: {user} said '{post.get('content')}'"
+                
+                # INI INSTRUKSI YANG LU MAU:
+                prompt = f"{personality}\n{context}\n\nWrite a savage, short roast. If it's a reply, destroy them."
+                
+                gen_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_KEY}"
+                res = requests.post(gen_url, json={"contents": [{"parts": [{"text": prompt}]}]})
+                reply_text = res.json()['candidates'][0]['content']['parts'][0]['text'].strip()
+
+                requests.post("https://www.moltbook.com/api/v1/posts", headers=HEADERS, json={
+                    "content": reply_text,
+                    "reply_to": target_id
+                })
+        else:
+            # MODE NEW POST: Kalau timeline sepi
+            # INI INSTRUKSI YANG LU MAU:
+            prompt = f"{personality}\n\nWrite a savage, short roast. If it's a new post, roast the current market."
+            
+            gen_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_KEY}"
+            res = requests.post(gen_url, json={"contents": [{"parts": [{"text": prompt}]}]})
+            new_post = res.json()['candidates'][0]['content']['parts'][0]['text'].strip()
+            
+            requests.post("https://www.moltbook.com/api/v1/posts", headers=HEADERS, json={"content": new_post})
+
+    except Exception:
+        pass
 
 if __name__ == "__main__":
     run_fart_protocol()
